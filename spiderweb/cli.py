@@ -105,17 +105,15 @@ async def run_crawl(args: argparse.Namespace) -> None:
 
     # CSV export
     if args.csv:
+        csv_fields = [
+            "url", "depth", "status_code", "content_type",
+            "response_time_ms", "title", "parent_url", "error",
+        ]
         with open(args.csv, "w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(
-                f,
-                fieldnames=[
-                    "url", "depth", "status_code", "content_type",
-                    "response_time_ms", "title", "parent_url", "error",
-                ],
-            )
+            writer = csv.DictWriter(f, fieldnames=csv_fields)
             writer.writeheader()
             for page in pages:
-                writer.writerow(page)
+                writer.writerow({k: page.get(k, "") for k in csv_fields})
         print(f"Wrote CSV to {args.csv}")
 
     # Broken links report
