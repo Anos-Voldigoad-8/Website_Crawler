@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#04070d" />
+    <meta
+      name="description"
+      content="SpiderWeb: an async website crawler with a live force-directed cyberpunk visualization."
+    />
+    <title>SpiderWeb // Live Crawl Topology</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2304070d'/%3E%3Cpath d='M32 16v32M16 32h32M20 20l24 24M44 20L20 44' stroke='%234df3ff' stroke-width='2'/%3E%3Ccircle cx='32' cy='32' r='8' fill='none' stroke='%23ff4fb8' stroke-width='3'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <canvas id="scene" aria-label="Live force-directed crawl graph"></canvas>
+
+    <div class="fx-scanlines" aria-hidden="true"></div>
+    <div class="fx-vignette" aria-hidden="true"></div>
+    <div class="fx-corners" aria-hidden="true">
+      <i></i><i></i><i></i><i></i>
+    </div>
+
+    <header class="hud hud-top">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="img">
+            <path d="M32 12v40M12 32h40M18 18l28 28M46 18L18 46" />
+            <circle cx="32" cy="32" r="9" />
+            <circle cx="32" cy="32" r="3.5" class="brand-core" />
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>SPIDER<span>WEB</span></h1>
+          <p>LIVE CRAWL TOPOLOGY <b>//</b> v0.1</p>
+        </div>
+      </div>
+
+      <div class="status-cluster">
+        <div id="status-pill" class="status-pill status-idle">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="status-text">STANDBY</span>
+        </div>
+        <div id="mode-tag" class="mode-tag mode-idle">IDLE</div>
+        <div class="clock">
+          <span class="clock-label">UPTIME</span>
+          <span id="clock" class="clock-value">00:00</span>
+        </div>
+      </div>
+    </header>
+
+    <aside class="hud hud-stats" aria-label="Crawl telemetry">
+      <div class="panel-head">
+        <span class="panel-title">TELEMETRY</span>
+        <span class="panel-line" aria-hidden="true"></span>
+        <span class="panel-meta">JOB <b id="job-id">—</b></span>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat">
+          <span class="stat-label">PAGES</span>
+          <span id="stat-pages" class="stat-value">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">LINKS</span>
+          <span id="stat-links" class="stat-value">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">DEPTH</span>
+          <span id="stat-depth" class="stat-value">0</span>
+        </div>
+        <div class="stat stat-danger">
+          <span class="stat-label">BROKEN</span>
+          <span id="stat-broken" class="stat-value">0</span>
+        </div>
+      </div>
+
+      <div class="legend" aria-label="Node legend">
+        <span><i class="dot dot-ok"></i>OK</span>
+        <span><i class="dot dot-fetching"></i>FETCH</span>
+        <span><i class="dot dot-error"></i>BROKEN</span>
+        <span><i class="dot dot-root"></i>ROOT</span>
+      </div>
+    </aside>
+
+    <aside class="hud hud-feed" aria-label="Event stream">
+      <div class="panel-head">
+        <span class="panel-title">EVENT STREAM</span>
+        <span class="panel-line" aria-hidden="true"></span>
+        <span class="feed-count" id="feed-count">0</span>
+      </div>
+      <ol id="event-feed" class="event-feed" aria-live="polite"></ol>
+    </aside>
+
+    <aside id="inspector" class="hud inspector" aria-label="Selected page">
+      <div class="panel-head">
+        <span class="panel-title">TARGET LOCK</span>
+        <span class="panel-line" aria-hidden="true"></span>
+        <button id="inspector-close" class="icon-btn" type="button" aria-label="Close inspector">×</button>
+      </div>
+      <h2 id="inspector-title" class="inspector-title">—</h2>
+      <p id="inspector-url" class="inspector-url">—</p>
+      <div class="inspector-grid">
+        <div><span>STATE</span><b id="inspector-state" class="inspector-state state-discovered">DISCOVERED</b></div>
+        <div><span>DEPTH</span><b id="inspector-depth">0</b></div>
+        <div><span>LATENCY</span><b id="inspector-time">—</b></div>
+        <div><span>OUT LINKS</span><b id="inspector-outgoing">0</b></div>
+        <div class="wide"><span>PARENT</span><b id="inspector-parent">—</b></div>
+      </div>
+      <button id="inspector-focus" class="btn btn-small" type="button">CENTER TARGET</button>
+    </aside>
+
+    <div id="empty-state" class="empty-state visible">
+      <div class="empty-bracket" aria-hidden="true"></div>
+      <h2>AWAITING TARGET</h2>
+      <p>Enter a URL below, or launch the synthetic feed to watch the centipede hunt.</p>
+    </div>
+
+    <footer class="hud hud-controls">
+      <form id="crawl-form" class="crawl-form" autocomplete="off">
+        <label class="field field-url">
+          <span class="field-label">TARGET URL</span>
+          <span class="input-wrap">
+            <span class="prompt" aria-hidden="true">›</span>
+            <input
+              id="url-input"
+              name="url"
+              type="url"
+              value="https://example.com/"
+              spellcheck="false"
+              placeholder="https://example.com/"
+              required
+            />
+          </span>
+        </label>
+
+        <label class="field field-num">
+          <span class="field-label">DEPTH</span>
+          <input id="depth-input" name="depth" type="number" min="0" max="10" value="3" />
+        </label>
+
+        <label class="field field-num">
+          <span class="field-label">PAGES</span>
+          <input id="pages-input" name="pages" type="number" min="1" max="5000" value="200" />
+        </label>
+
+        <button id="start-btn" class="btn btn-primary" type="submit">
+          <span class="btn-icon" aria-hidden="true">▶</span>
+          INITIATE CRAWL
+        </button>
+      </form>
+
+      <div class="control-row">
+        <button id="pause-btn" class="btn btn-control" type="button" aria-pressed="false">
+          <span class="control-icon" aria-hidden="true">Ⅱ</span>
+          <span class="control-label">PAUSE</span>
+        </button>
+        <button id="labels-btn" class="btn btn-control active" type="button" aria-pressed="true">
+          <span class="control-icon" aria-hidden="true">Aa</span>
+          <span class="control-label">LABELS</span>
+        </button>
+        <button id="creature-btn" class="btn btn-control active" type="button" aria-pressed="true">
+          <span class="control-icon" aria-hidden="true">⌇</span>
+          <span class="control-label">CREATURE</span>
+        </button>
+        <button id="fit-btn" class="btn btn-control" type="button">
+          <span class="control-icon" aria-hidden="true">⛶</span>
+          <span class="control-label">FIT</span>
+        </button>
+        <button id="demo-btn" class="btn btn-control" type="button">
+          <span class="control-icon" aria-hidden="true">✦</span>
+          <span class="control-label">DEMO</span>
+        </button>
+        <button id="reset-btn" class="btn btn-control" type="button">
+          <span class="control-icon" aria-hidden="true">⟲</span>
+          <span class="control-label">RESET</span>
+        </button>
+        <button id="cancel-btn" class="btn btn-danger" type="button" disabled>
+          <span class="control-icon" aria-hidden="true">■</span>
+          <span class="control-label">ABORT</span>
+        </button>
+
+        <div class="export-group" aria-label="Export results">
+          <a id="export-json" class="btn btn-export disabled" data-format="json" aria-disabled="true">JSON</a>
+          <a id="export-csv" class="btn btn-export disabled" data-format="csv" aria-disabled="true">CSV</a>
+        </div>
+      </div>
+
+      <div class="hint-row" aria-hidden="true">
+        <span><b>DRAG</b> pan / node</span>
+        <span><b>SCROLL</b> zoom</span>
+        <span><b>SPACE</b> freeze</span>
+        <span><b>F</b> fit</span>
+        <span><b>L</b> labels</span>
+        <span><b>C</b> creature</span>
+      </div>
+    </footer>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <noscript>
+      <div class="noscript">SpiderWeb needs JavaScript enabled to render the live graph.</div>
+    </noscript>
+
+    <script type="module" src="/static/js/app.js"></script>
+  </body>
+</html>

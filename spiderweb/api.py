@@ -4,16 +4,21 @@ from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
 from typing import Dict, Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
-from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
 from .crawler import Crawler, is_blocked_ip, urlparse_host
 from .models import CrawlConfig, CrawlEvent, CrawlEventType
 
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+
 app = FastAPI(title="SpiderWeb", version="0.1.0")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +99,12 @@ def _validate_start_url(url_str: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
+@app.get("/", include_in_schema=False)
+async def index() -> FileResponse:
+    """Serve the live visualization."""
+    return FileResponse(STATIC_DIR / "index.html")
+
 
 @app.get("/api/health")
 async def health() -> dict:
